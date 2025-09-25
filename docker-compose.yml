@@ -1,0 +1,22 @@
+services:
+ app:
+   build:
+     # The 'context' is the directory to use for the build process.
+     # The `Dockerfile` specified below must be in this directory.
+     context: .
+
+
+     # The 'dockerfile' specifies the name of the Dockerfile to use.
+     dockerfile: Dockerfile
+
+
+   # Maps a port on your host machine (8000) to a port inside the container (8000).
+   # This allows you to access the web app from your browser.
+   ports:
+     - "3000:3000"
+
+
+   # Mounts the current directory into the container's /app directory.
+   # This enables live-reloading of your code during development without rebuilding the image.
+   volumes:
+     - ".:/app"
