@@ -1,29 +1,32 @@
 'use client'
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import axios from 'axios';
 import { Loader2, CheckCircle, XCircle, MoveLeft } from 'lucide-react';
+import styles from './otp.module.css';
 
-// A simple component for OTP input, now defined inside OtpPage for simplicity
-const OtpInput = ({ onChange, onComplete }) => {
+// Get the API base URL from the environment variables
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+// Refactored OtpInput to be a separate component for reusability
+const OtpInput = ({ onComplete }) => {
   const [otp, setOtp] = useState(new Array(6).fill(""));
-  const inputRefs = Array(6).fill(0).map(i => React.createRef());
+  const inputRefs = useRef(new Array(6).fill(null));
 
   const handleChange = (element, index) => {
     if (isNaN(element.value)) return false;
     const newOtp = [...otp.map((d, idx) => (idx === index ? element.value : d))];
     setOtp(newOtp);
 
-    // Focus on the next input field if a digit is entered
     if (element.value !== "" && index < 5) {
-      inputRefs[index + 1].current.focus();
+      inputRefs.current[index + 1].focus();
     }
   };
 
   const handleKeyDown = (e, index) => {
-    // If backspace is pressed and the current input is empty, focus on the previous input
     if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      inputRefs[index - 1].current.focus();
+      inputRefs.current[index - 1].focus();
     }
   };
 
@@ -35,18 +38,18 @@ const OtpInput = ({ onChange, onComplete }) => {
   }, [otp, onComplete]);
 
   return (
-    <div className="flex justify-center space-x-2">
+    <div className={styles.otpInputContainer}>
       {otp.map((data, index) => (
         <input
           key={index}
-          className="w-12 h-12 text-center text-xl font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 transition-colors"
+          className={styles.otpInputField}
           type="text"
           maxLength="1"
           value={data}
           onChange={e => handleChange(e.target, index)}
           onKeyDown={e => handleKeyDown(e, index)}
           onFocus={e => e.target.select()}
-          ref={inputRefs[index]}
+          ref={el => inputRefs.current[index] = el}
         />
       ))}
     </div>
@@ -76,30 +79,25 @@ export default function OtpPage() {
     setMessage(null);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/verify-otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, otp: otpValue }),
-        credentials: 'include'
+      // Use axios.post with the environment variable
+      const response = await axios.post(`${API_BASE_URL}/auth/verify-otp`, {
+        email,
+        otp: otpValue
+      }, {
+        withCredentials: true,
       });
-      
-      const data = await response.json();
-      setLoading(false);
 
-      if (!response.ok) {
-        setMessage({ type: 'error', text: data.message || 'OTP verification failed.' });
-        return;
-      }
-
-      setMessage({ type: 'success', text: data.message || 'Verification successful! Redirecting...' });
+      // Axios automatically returns the data in response.data
+      setMessage({ type: 'success', text: response.data.message || 'Verification successful! Redirecting...' });
       
       setTimeout(() => router.push('/Home'), 1000); 
 
     } catch (error) {
       setLoading(false);
-      setMessage({ type: 'error', text: 'Network error. Please try again.' });
+      console.error('OTP verification error:', error);
+      // Access the specific error message from the response if available
+      const errorMessage = error.response?.data?.message || 'Network error. Please try again.';
+      setMessage({ type: 'error', text: errorMessage });
     }
   };
 
@@ -108,29 +106,24 @@ export default function OtpPage() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-100 font-sans">
-      <script src="https://cdn.tailwindcss.com"></script>
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-      `}</style>
-      <div className="w-full max-w-sm p-8 space-y-6 bg-white rounded-xl shadow-2xl">
-        <Link href="/Login" className="flex items-center gap-2 text-indigo-600 hover:underline mb-4 cursor-pointer">
+    <div className={styles.mainContainer}>
+      <div className={styles.card}>
+        <Link href="/Login" className={styles.backLink}>
           <MoveLeft size={16} /> Back
         </Link>
-        <h2 className="text-2xl font-bold text-center text-gray-800">Verify OTP</h2>
-        <p className="text-center text-sm text-gray-600">
+        <h2 className={styles.title}>Verify OTP</h2>
+        <p className={styles.subtitle}>
           An OTP has been sent to **{email}**.
         </p>
         {message && (
-          <div className={`flex items-center gap-2 p-4 text-sm rounded-lg ${message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} shadow-md`}>
+          <div className={`${styles.message} ${message.type === 'success' ? styles.successMessage : styles.errorMessage}`}>
             {message.type === 'success' ? <CheckCircle size={16} /> : <XCircle size={16} />}
             <span>{message.text}</span>
           </div>
         )}
-        <div className="flex flex-col items-center space-y-4">
+        <div className={styles.formContainer}>
           <OtpInput onComplete={handleOtpChange} />
-          <button onClick={handleVerifyOtp} disabled={loading || otpValue.length !== 6} className="w-full py-2 px-4 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+          <button onClick={handleVerifyOtp} disabled={loading || otpValue.length !== 6} className={styles.verifyButton}>
             {loading ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
             {loading ? 'Verifying...' : 'Verify & Log In'}
           </button>

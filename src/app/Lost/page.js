@@ -1,10 +1,15 @@
-// This is the updated and complete code for ReportLostPage.js
 'use client';
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import { Loader2 } from 'lucide-react';
+
+import styles from './lost.module.css';
+
+// Get the API base URL from the environment variables
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function ReportLostPage() {
   const [formData, setFormData] = useState({
@@ -14,12 +19,10 @@ export default function ReportLostPage() {
     contact: '',
   });
   const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null); // State for image preview
+  const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [showMapModal, setShowMapModal] = useState(false);
   const router = useRouter();
 
-  // Cleanup function for the image preview URL
   useEffect(() => {
     return () => {
       if (imagePreview) {
@@ -32,12 +35,11 @@ export default function ReportLostPage() {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
-  
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       setImageFile(file);
-      // Create a local URL for the image preview
       setImagePreview(URL.createObjectURL(file));
     } else {
       setImageFile(null);
@@ -45,20 +47,10 @@ export default function ReportLostPage() {
     }
   };
 
-  const handleMapLocation = () => {
-    setShowMapModal(true);
-  };
-
-  const confirmMapLocation = () => {
-    setShowMapModal(false);
-    alert('Location set successfully!');
-    setFormData(prev => ({ ...prev, location: 'Current Location (via map)' }));
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    
+
     const data = new FormData();
     data.append('itemType', 'lost');
     data.append('itemName', formData.itemName);
@@ -70,7 +62,8 @@ export default function ReportLostPage() {
     }
 
     try {
-      const response = await axios.post('http://localhost:5000/api/items/lost', data, {
+      // Use the environment variable to construct the full URL
+      const response = await axios.post(`${API_BASE_URL}/items/lost`, data, {
         withCredentials: true,
         headers: {
             'Content-Type': 'multipart/form-data',
@@ -97,17 +90,25 @@ export default function ReportLostPage() {
         <title>Report Lost Item - Bullwork Finder</title>
         <meta name="description" content="Report a lost item at Bullwork Mobility." />
       </Head>
-      
-      <main className="bg-gray-50 min-h-screen flex items-center justify-center p-6">
-        <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden p-8 sm:p-10 border-t-8 border-red-500">
-          <h1 className="text-3xl font-bold text-center text-gray-800 mb-2">Report a Lost Item</h1>
-          <p className="text-center text-gray-600 mb-8">
+
+      <main className={styles.mainContainer}>
+        {/* New header section added here */}
+        <div className={styles.header}>
+            <h1 className={styles.title}>Report Lost Item</h1>
+            <Link href="/Home" className={styles.backButton}>
+                Back to Home
+            </Link>
+        </div>
+
+        <div className={styles.formCard}>
+          <h1 className={styles.formTitle}>Report a Lost Item</h1>
+          <p className={styles.formSubtitle}>
             Please fill out the form below with the details of the item you have lost.
           </p>
-          
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="itemName" className="block text-sm font-medium text-gray-700 mb-1">Item Name</label>
+
+          <form onSubmit={handleSubmit} className={styles.form}>
+            <div className={styles.formGroup}>
+              <label htmlFor="itemName" className={styles.label}>Item Name</label>
               <input
                 type="text"
                 id="itemName"
@@ -115,13 +116,13 @@ export default function ReportLostPage() {
                 value={formData.itemName}
                 onChange={handleChange}
                 placeholder="e.g., Car Keys, Company Laptop"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition"
+                className={styles.inputField}
                 required
               />
             </div>
-            
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+
+            <div className={styles.formGroup}>
+              <label htmlFor="description" className={styles.label}>Description</label>
               <textarea
                 id="description"
                 name="description"
@@ -129,63 +130,51 @@ export default function ReportLostPage() {
                 onChange={handleChange}
                 placeholder="e.g., Silver watch with a leather band. Last seen on my desk."
                 rows="4"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition"
+                className={styles.textareaField}
                 required
               ></textarea>
             </div>
-            
-            <div>
-              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">Last Seen Location</label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  id="location"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleChange}
-                  placeholder="Click pin icon to use map"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition"
-                  readOnly={true}
-                  required
-                />
-                <button 
-                  type="button" 
-                  onClick={handleMapLocation}
-                  className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition"
-                  title="Set location via map"
-                >
-                  <span role="img" aria-label="map pin" className="text-xl">📍</span>
-                </button>
-              </div>
+
+            <div className={styles.formGroup}>
+              <label htmlFor="location" className={styles.label}>Last Seen Location</label>
+              <input
+                type="text"
+                id="location"
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                placeholder="e.g., Cafeteria, Meeting Room C"
+                className={styles.inputField}
+                required
+              />
             </div>
-            
-            <div>
-              <label htmlFor="imageFile" className="block text-sm font-medium text-gray-700 mb-1">Image/Video of the Item</label>
+
+            <div className={styles.formGroup}>
+              <label htmlFor="imageFile" className={styles.label}>Image/Video of the Item</label>
               <input
                 type="file"
                 id="imageFile"
                 name="imageFile"
                 onChange={handleFileChange}
                 accept="image/*,video/*"
-                // 👇️ Add the 'capture' attribute here
-                capture="user" // 'user' for front camera, 'environment' for back camera
-                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                capture="user"
+                className={styles.fileInput}
               />
-              <p className="mt-1 text-xs text-gray-500">
+              <p className={styles.fileHint}>
                 You can browse for a file or use your device's camera.
               </p>
               {imagePreview && (
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Image Preview</label>
-                  <div className="border border-gray-300 rounded-lg overflow-hidden flex items-center justify-center h-48">
-                    <img src={imagePreview} alt="Item preview" className="object-cover w-full h-full" />
+                <div className={styles.imagePreviewContainer}>
+                  <label className={styles.label}>Image Preview</label>
+                  <div className={styles.imagePreviewWrapper}>
+                    <img src={imagePreview} alt="Item preview" className={styles.imagePreview} />
                   </div>
                 </div>
               )}
             </div>
-            
-            <div>
-              <label htmlFor="contact" className="block text-sm font-medium text-gray-700 mb-1">Contact Info (Email/Phone)</label>
+
+            <div className={styles.formGroup}>
+              <label htmlFor="contact" className={styles.label}>Contact Info (Email/Phone)</label>
               <input
                 type="text"
                 id="contact"
@@ -193,48 +182,28 @@ export default function ReportLostPage() {
                 value={formData.contact}
                 onChange={handleChange}
                 placeholder="e.g., john.doe@bullwork.com"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition"
+                className={styles.inputField}
                 required
               />
             </div>
-            
+
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 bg-red-500 text-white font-semibold rounded-full shadow-md hover:bg-red-600 transition disabled:bg-red-300"
+              className={styles.submitButton}
             >
-              {loading ? 'Submitting...' : 'Submit Lost Item'}
+              {loading ? (
+                <Loader2 className="animate-spin" size={20} />
+              ) : (
+                'Submit Lost Item'
+              )}
             </button>
-            
-            <Link href="/" className="block text-center text-sm font-medium text-gray-500 hover:underline mt-4">
+
+            <Link href="/" className={styles.cancelLink}>
               Cancel and go back to home
             </Link>
           </form>
         </div>
-        {showMapModal && (
-          <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-xl">
-              <h2 className="text-2xl font-bold mb-4 text-gray-800">Set Location on Map</h2>
-              <p className="text-center text-sm text-gray-600 my-4">
-                Simulating your exact location in Bengaluru, India.
-              </p>
-              <div className="flex justify-end space-x-4">
-                <button 
-                  onClick={() => setShowMapModal(false)}
-                  className="px-6 py-2 border border-gray-300 rounded-full text-gray-700 font-medium hover:bg-gray-100 transition"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={confirmMapLocation}
-                  className="px-6 py-2 bg-green-500 text-white rounded-full font-medium hover:bg-green-600 transition"
-                >
-                  Confirm Location
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
     </>
   );

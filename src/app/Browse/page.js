@@ -2,35 +2,77 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import axios from 'axios';
 import { Loader2 } from 'lucide-react';
+
+import styles from './browse.module.css';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+// Corrected value to 3 to match the desired behavior
+const ITEMS_PER_LOAD = 3; 
 
 export default function BrowseItemsPage() {
   const [allItems, setAllItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [hasMore, setHasMore] = useState(true);
+  const [totalItemsCount, setTotalItemsCount] = useState(0);
+
+  const fetchItems = async (skip, take, isInitialLoad = false) => {
+    if (isInitialLoad) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+
+    try {
+      const response = await axios.get(`${API_BASE_URL}/items`, {
+        params: {
+          skip: skip,
+          take: take,
+        },
+      });
+
+      const { items, totalItemsCount: newTotalCount } = response.data;
+      
+      setAllItems(prevItems => [...prevItems, ...items]);
+      setTotalItemsCount(newTotalCount);
+
+      if ((skip + items.length) >= newTotalCount) {
+        setHasMore(false);
+      }
+
+    } catch (err) {
+      console.error('Failed to fetch items:', err);
+      setError(err.response?.data?.error || 'Failed to load items. Please try again later.');
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchAllItems = async () => {
-      try {
-        const response = await fetch('http://localhost:5000/api/items/');
-        if (!response.ok) {
-          throw new Error('Failed to fetch items.');
-        }
-        const data = await response.json();
-        setAllItems(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAllItems();
+    fetchItems(0, ITEMS_PER_LOAD, true);
   }, []);
 
+  const handleLoadMore = () => {
+    const currentLoadedCount = allItems.length;
+    fetchItems(currentLoadedCount, ITEMS_PER_LOAD);
+  };
+  
+  const handleFilterChange = (type) => {
+      setFilterType(type);
+      setSearchTerm('');
+  };
+
   const filteredItems = useMemo(() => {
-    return allItems.filter(item => {
+    const allUniqueItems = [...new Map(allItems.map(item => [item.id, item])).values()];
+    
+    return allUniqueItems.filter(item => {
       const matchesSearch = item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           item.description.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesFilter = filterType === 'all' || item.itemType === filterType;
@@ -38,9 +80,9 @@ export default function BrowseItemsPage() {
     });
   }, [allItems, searchTerm, filterType]);
 
-  if (loading) {
+  if (loading && allItems.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className={styles.loadingContainer}>
         <Loader2 className="animate-spin" size={40} />
       </div>
     );
@@ -48,7 +90,7 @@ export default function BrowseItemsPage() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-red-500">
+      <div className={`${styles.loadingContainer} ${styles.errorText}`}>
         Error: {error}
       </div>
     );
@@ -60,76 +102,75 @@ export default function BrowseItemsPage() {
         <title>Browse Items - Bullwork Finder</title>
         <meta name="description" content="Browse all lost and found items posted by employees." />
       </Head>
-      <main className="bg-gray-50 text-gray-900 min-h-screen p-6 sm:p-10">
-        <div className="container mx-auto">
-          <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
-            <h1 className="text-4xl font-bold text-gray-800 mb-4 sm:mb-0">Browse All Items</h1>
-            <Link href="/Home" className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-full shadow-lg transition duration-300 transform hover:scale-105">
+      <main className={styles.mainContainer}>
+        <div className={styles.container}>
+          <div className={styles.header}>
+            <h1 className={styles.title}>Browse All Items</h1>
+            <Link href="/Home" className={styles.backButton}>
               Back to Home
             </Link>
           </div>
-          <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0 md:space-x-6 mb-10 p-4 bg-white rounded-xl shadow-md">
-            <div className="w-full md:flex-1">
+          <div className={styles.filterContainer}>
+            <div className={styles.searchInput}>
               <input
                 type="text"
                 placeholder="Search for an item..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 transition"
+                className={styles.inputField}
               />
             </div>
-            <div className="w-full md:w-auto flex justify-center space-x-2">
+            <div className={styles.filterButtons}>
               <button
-                onClick={() => setFilterType('all')}
-                className={`px-6 py-2 rounded-full font-semibold transition-colors ${filterType === 'all' ? 'bg-teal-600 text-white shadow-lg' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                onClick={() => handleFilterChange('all')}
+                className={`${styles.filterButton} ${filterType === 'all' ? styles.activeAll : ''}`}
               >
                 All
               </button>
               <button
-                onClick={() => setFilterType('lost')}
-                className={`px-6 py-2 rounded-full font-semibold transition-colors ${filterType === 'lost' ? 'bg-red-500 text-white shadow-lg' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                onClick={() => handleFilterChange('lost')}
+                className={`${styles.filterButton} ${filterType === 'lost' ? styles.activeLost : ''}`}
               >
                 Lost
               </button>
               <button
-                onClick={() => setFilterType('found')}
-                className={`px-6 py-2 rounded-full font-semibold transition-colors ${filterType === 'found' ? 'bg-teal-500 text-white shadow-lg' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                onClick={() => handleFilterChange('found')}
+                className={`${styles.filterButton} ${filterType === 'found' ? styles.activeFound : ''}`}
               >
                 Found
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredItems.length === 0 ? (
-              <p className="col-span-full text-center text-gray-500 italic">No items match your search or filter criteria.</p>
+          <div className={styles.itemsGrid}>
+            {filteredItems.length === 0 && !loadingMore ? (
+              <p className={styles.noItemsText}>No items match your search or filter criteria.</p>
             ) : (
               filteredItems.map((item) => (
-                <div key={item.id} className="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300 overflow-hidden border-t-4 border-gray-200">
-                  <div className="relative">
-                   <image
-  src={item.imageURL ? `http://localhost:5000${item.imageURL}` : `https://placehold.co/400x300/${item.itemType === 'lost' ? 'FCA5A5' : '99F6E4'}/${item.itemType === 'lost' ? 'ffffff' : '333'}?text=${item.itemName}`} 
-  alt={item.itemName} 
-  className="w-full h-48 object-cover" 
-/>
-
-                    <div className={`absolute top-4 right-4 text-white px-3 py-1 rounded-full text-sm font-bold shadow-md ${item.itemType === 'lost' ? 'bg-red-500' : 'bg-teal-500'}`}>
+                <div key={item.id} className={styles.itemCard}>
+                  <div className={styles.imageWrapper}>
+                   <img
+                    src={item.imageURL ? `${API_BASE_URL.replace('/api', '')}${item.imageURL}` : `https://placehold.co/400x300/${item.itemType === 'lost' ? 'FCA5A5' : '99F6E4'}/${item.itemType === 'lost' ? 'ffffff' : '333'}?text=${item.itemName}`} 
+                    alt={item.itemName} 
+                    className={styles.itemImage}
+                  />
+                    <div className={`${styles.itemBadge} ${item.itemType === 'lost' ? styles.lostBadge : styles.foundBadge}`}>
                       {item.itemType === 'lost' ? 'Lost Item' : 'Found Item'}
                     </div>
                   </div>
-                  <div className="p-6">
-                    <h3 className="text-2xl font-bold mb-2">{item.itemName}</h3>
-                    <p className="text-gray-600 mb-4">{item.description}</p>
-                    <div className="space-y-2 text-sm text-gray-500">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-semibold text-gray-700">Location:</span>
+                  <div className={styles.itemContent}>
+                    <h3 className={styles.itemTitle}>{item.itemName}</h3>
+                    <p className={styles.itemDescription}>{item.description}</p>
+                    <div className={styles.itemDetails}>
+                      <div className={styles.detailItem}>
+                        <span className={styles.detailLabel}>Location:</span>
                         <span>{item.location}</span>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-semibold text-gray-700">Posted by:</span>
+                      <div className={styles.detailItem}>
+                        <span className={styles.detailLabel}>Posted by:</span>
                         <span>{item.postedBy.name}</span>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-semibold text-gray-700">Posted on:</span>
+                      <div className={styles.detailItem}>
+                        <span className={styles.detailLabel}>Posted on:</span>
                         <span>{new Date(item.createdAt).toLocaleDateString()}</span>
                       </div>
                     </div>
@@ -138,6 +179,28 @@ export default function BrowseItemsPage() {
               ))
             )}
           </div>
+          {loadingMore && (
+            <div className={styles.loadingMoreContainer}>
+              <Loader2 className="animate-spin" size={30} />
+            </div>
+          )}
+
+          {hasMore && !searchTerm && !loadingMore && (
+            <div className={styles.loadMoreContainer}>
+              <button
+                onClick={handleLoadMore}
+                className={styles.loadMoreButton}
+                disabled={loadingMore}
+              >
+                Load More
+              </button>
+            </div>
+          )}
+
+          {!hasMore && !searchTerm && (
+              <p className={styles.noMoreItems}>You've reached the end of the list! 🎉</p>
+          )}
+
         </div>
       </main>
     </>

@@ -6,6 +6,11 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { Loader2, X } from 'lucide-react';
 
+import styles from './home.module.css';
+
+// Get the API base URL from the environment variables
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
 export default function HomePage() {
   const [recentItems, setRecentItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,14 +19,13 @@ export default function HomePage() {
   const [user, setUser] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // New state for auth status
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    // Check authentication status on page load
     const checkAuth = async () => {
       try {
-        await axios.get('http://localhost:5000/api/auth/check-auth', {
+        await axios.get(`${API_BASE_URL}/auth/check-auth`, {
           withCredentials: true,
         });
         setIsLoggedIn(true);
@@ -32,7 +36,7 @@ export default function HomePage() {
 
     const fetchRecentItems = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/items/recent');
+        const response = await axios.get(`${API_BASE_URL}/items/recent`);
         setRecentItems(response.data);
       } catch (err) {
         console.error('Failed to fetch recent items:', err);
@@ -41,7 +45,7 @@ export default function HomePage() {
         setLoading(false);
       }
     };
-    
+
     checkAuth();
     fetchRecentItems();
   }, []);
@@ -50,7 +54,7 @@ export default function HomePage() {
     if (!isLoggedIn) {
       e.preventDefault();
       alert('You must be logged in to view your items.');
-      router.push('/Login'); 
+      router.push('/Login');
     }
   };
 
@@ -65,7 +69,7 @@ export default function HomePage() {
       setProfileLoading(true);
       setProfileError(null);
       try {
-        const response = await axios.get('http://localhost:5000/api/auth/profile', {
+        const response = await axios.get(`${API_BASE_URL}/auth/profile`, {
           withCredentials: true,
         });
         setUser(response.data);
@@ -80,6 +84,27 @@ export default function HomePage() {
     setShowProfilePopup(!showProfilePopup);
   };
 
+  // New function to handle user logout
+  const handleLogout = async () => {
+    try {
+      await axios.post(`${API_BASE_URL}/auth/logout`, {}, {
+        withCredentials: true,
+      });
+      // Clear user state and redirect
+      setIsLoggedIn(false);
+      setUser(null);
+      setShowProfilePopup(false);
+      router.push('/Login');
+    } catch (err) {
+      console.error('Logout failed:', err);
+      // Even if logout fails on the server, we should clear client-side state
+      setIsLoggedIn(false);
+      setUser(null);
+      setShowProfilePopup(false);
+      router.push('/Login');
+    }
+  };
+
   return (
     <>
       <Head>
@@ -90,21 +115,21 @@ export default function HomePage() {
         />
       </Head>
 
-      <main className="bg-gray-50 text-gray-900 min-h-screen">
+      <main className={styles.mainContainer}>
         {/* Navigation Bar */}
-        <nav className="fixed w-full z-20 top-0 left-0">
-          <div className="container mx-auto flex justify-end items-center px-6 py-4 relative">
-            <div className="flex items-center space-x-4">
+        <nav className={styles.navbar}>
+          <div className={styles.navContent}>
+            <div className={styles.navLinks}>
               <Link
                 href={isLoggedIn ? "/yourItems" : "#"}
                 onClick={handleYourItemsClick}
-                className="text-white hover:text-gray-300 transition-colors duration-300 p-2 rounded-full hover:bg-white hover:bg-opacity-20"
+                className={styles.yourItemsLink}
               >
                 Your Items
               </Link>
               <button
                 onClick={fetchUserProfile}
-                className="text-white hover:text-gray-300 transition-colors duration-300 p-2 rounded-full hover:bg-white hover:bg-opacity-20"
+                className={styles.profileButton}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -125,28 +150,32 @@ export default function HomePage() {
 
             {/* Profile Pop-up */}
             {showProfilePopup && (
-              <div className="absolute top-full right-4 mt-2 p-6 bg-white rounded-lg shadow-xl w-64 z-30">
-                <div className="flex justify-end mb-2">
-                  <button onClick={() => setShowProfilePopup(false)} className="text-gray-500 hover:text-gray-800">
-                    <X size={20} />
+              <div className={styles.profilePopup}>
+                <div className={styles.profilePopupHeader}>
+                  <button onClick={() => setShowProfilePopup(false)} className={styles.closeButton}>
+                    <X size={16} />
                   </button>
                 </div>
                 {profileLoading ? (
-                  <div className="flex justify-center items-center py-4">
-                    <Loader2 className="animate-spin text-teal-600" size={24} />
+                  <div className={styles.loadingContainer}>
+                    <Loader2 className="animate-spin text-teal-600" size={20} />
                   </div>
                 ) : profileError ? (
-                  <div className="text-center text-red-500 py-4">{profileError}</div>
+                  <div className={styles.errorText}>{profileError}</div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className={styles.profileContent}>
                     <div>
-                      <p className="text-gray-500 text-sm font-semibold">Name</p>
-                      <p className="text-gray-800 text-lg">{user?.name}</p>
+                      <p className={styles.profileLabel}>Name</p>
+                      <p className={styles.profileText}>{user?.name}</p>
                     </div>
                     <div>
-                      <p className="text-gray-500 text-sm font-semibold">Email</p>
-                      <p className="text-gray-800 text-lg">{user?.email}</p>
+                      <p className={styles.profileLabel}>Email</p>
+                      <p className={styles.profileText}>{user?.email}</p>
                     </div>
+                    {/* Add a logout button here */}
+                    <button onClick={handleLogout} className={styles.logoutButton}>
+                      Log Out
+                    </button>
                   </div>
                 )}
               </div>
@@ -156,37 +185,28 @@ export default function HomePage() {
 
         {/* Hero Section */}
         <section
-          className="relative h-[70vh] flex items-center justify-center text-center p-4 bg-cover bg-center"
+          className={styles.heroSection}
           style={{
             backgroundImage:
               "url('https://t4.ftcdn.net/jpg/05/37/05/15/360_F_537051575_QMgTmcn9DVgwzPdboJHx6fqSge02BRzM.jpg')",
           }}
         >
-          <div className="absolute inset-0 bg-black opacity-50"></div>
-          <div className="z-10 text-white">
-            <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tight mb-4 animate-fade-in-up">
+          <div className={styles.heroOverlay}></div>
+          <div className={styles.heroContent}>
+            <h1 className={`${styles.heroTitle} ${styles.animateFadeInUp}`}>
               Find it. Report it. Recover it.
             </h1>
-            <p className="text-lg sm:text-xl md:text-2xl max-w-2xl mx-auto mb-10 text-gray-200 animate-fade-in-up delay-200">
+            <p className={`${styles.heroSubtitle} ${styles.animateFadeInUp}`}>
               The smart way to reunite lost items with their owners at Bullwork Mobility.
             </p>
-            <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
-              <Link
-                href="/Lost"
-                className="w-full sm:w-auto px-8 py-4 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-full shadow-lg transition duration-300 transform hover:scale-105"
-              >
+            <div className={styles.heroButtons}>
+              <Link href="/Lost" className={`${styles.lostButton} ${styles.heroButton}`}>
                 🔍 Lost Something?
               </Link>
-              <Link
-                href="/Found"
-                className="w-full sm:w-auto px-8 py-4 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-full shadow-lg transition duration-300 transform hover:scale-105"
-              >
+              <Link href="/Found" className={`${styles.foundButton} ${styles.heroButton}`}>
                 ✋ Found an Item?
               </Link>
-              <Link
-                href="/Browse"
-                className="w-full sm:w-auto px-8 py-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-full shadow-lg transition duration-300 transform hover:scale-105"
-              >
+              <Link href="/Browse" className={`${styles.browseButton} ${styles.heroButton}`}>
                 📦 Browse Items
               </Link>
             </div>
@@ -194,38 +214,38 @@ export default function HomePage() {
         </section>
 
         {/* Recently Added Items */}
-        <section className="py-20 bg-white">
-          <div className="container mx-auto px-6">
-            <div className="flex justify-between items-center mb-10">
-              <h2 className="text-3xl font-bold text-gray-800">Recently Added Items</h2>
-              <div className="flex items-center">
-                <Link href="/Browse" className="text-teal-600 hover:underline font-semibold">
+        <section className={styles.recentItemsSection}>
+          <div className={styles.container}>
+            <div className={styles.sectionHeader}>
+              <h2 className={styles.sectionTitle}>Recently Added Items</h2>
+              <div className={styles.headerLinks}>
+                <Link href="/Browse" className={styles.seeMoreLink}>
                   See More
                 </Link>
               </div>
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center min-h-[200px]">
+              <div className={styles.loadingItems}>
                 <Loader2 className="animate-spin text-teal-600" size={40} />
               </div>
             ) : error ? (
-              <div className="flex items-center justify-center min-h-[200px] text-red-500">
+              <div className={styles.errorItems}>
                 {error}
               </div>
             ) : recentItems.length === 0 ? (
-              <p className="text-center text-gray-500 italic">No items have been posted yet.</p>
+              <p className={styles.noItemsText}>No items have been posted yet.</p>
             ) : (
-              <div className="flex flex-wrap md:flex-nowrap gap-4 py-4 w-full justify-between overflow-x-auto">
+              <div className={styles.recentItemsGrid}>
                 {recentItems.slice(0, 5).map((item, index) => (
                   <div
                     key={item._id || item.id || index}
-                    className="group relative flex-none w-full md:w-1/5 h-64 rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300 cursor-pointer overflow-hidden border-t-4 border-gray-200"
+                    className={styles.itemCard}
                   >
                     <img
                       src={
                         item.imageURL
-                          ? `http://localhost:5000${item.imageURL}`
+                          ? `${API_BASE_URL.replace('/api', '')}${item.imageURL}`
                           : `https://placehold.co/400x300/${
                               item.itemType === 'lost' ? 'FCA5A5' : '99F6E4'
                             }/${item.itemType === 'lost' ? 'ffffff' : '333'}?text=${
@@ -233,13 +253,12 @@ export default function HomePage() {
                             }`
                       }
                       alt={item.itemName}
-                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      className={styles.itemImage}
                     />
-                    {/* Overlay */}
-                    <div className="absolute inset-x-0 bottom-0 p-4 text-white bg-gradient-to-t from-black via-black/80 to-transparent transform translate-y-full group-hover:translate-y-0 transition-transform duration-500">
-                      <h3 className="text-xl font-bold mb-1">{item.itemName}</h3>
-                      <p className="text-sm line-clamp-2 mb-2">{item.description}</p>
-                      <div className="text-xs text-gray-200">
+                    <div className={styles.itemOverlay}>
+                      <h3 className={styles.itemTitle}>{item.itemName}</h3>
+                      <p className={styles.itemDescription}>{item.description}</p>
+                      <div className={styles.itemDetails}>
                         <p>
                           <strong>Location:</strong> {item.location}
                         </p>
@@ -253,8 +272,8 @@ export default function HomePage() {
                       </div>
                     </div>
                     <div
-                      className={`absolute top-4 right-4 text-white px-3 py-1 rounded-full text-sm font-bold shadow-md ${
-                        item.itemType === 'lost' ? 'bg-red-500' : 'bg-teal-500'
+                      className={`${styles.itemTypeBadge} ${
+                        item.itemType === 'lost' ? styles.lostBadge : styles.foundBadge
                       }`}
                     >
                       {item.itemType === 'lost' ? 'Lost Item' : 'Found Item'}
@@ -267,38 +286,36 @@ export default function HomePage() {
         </section>
 
         {/* How It Works */}
-        <section className="py-20 bg-gray-100">
-          <div className="container mx-auto px-6 text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-12 text-gray-800">
-              How It Works
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-              <div className="flex flex-col items-center">
-                <div className="text-6xl text-red-500 mb-4">📝</div>
-                <h3 className="text-2xl font-semibold mb-2 text-gray-800">
+        <section className={styles.howItWorksSection}>
+          <div className={styles.container}>
+            <h2 className={styles.howItWorksTitle}>How It Works</h2>
+            <div className={styles.howItWorksGrid}>
+              <div className={styles.howItWorksCard}>
+                <div className={styles.howItWorksIcon}>📝</div>
+                <h3 className={styles.howItWorksCardTitle}>
                   Report an Item
                 </h3>
-                <p className="text-gray-600">
+                <p className={styles.howItWorksCardText}>
                   If you've lost or found something, simply fill out a quick form
                   with a description and a photo.
                 </p>
               </div>
-              <div className="flex flex-col items-center">
-                <div className="text-6xl text-teal-500 mb-4">🔎</div>
-                <h3 className="text-2xl font-semibold mb-2 text-gray-800">
+              <div className={styles.howItWorksCard}>
+                <div className={styles.howItWorksIcon}>🔎</div>
+                <h3 className={styles.howItWorksCardTitle}>
                   Instant Matching
                 </h3>
-                <p className="text-gray-600">
+                <p className={styles.howItWorksCardText}>
                   Our intelligent system will automatically match lost and found
                   items in our database.
                 </p>
               </div>
-              <div className="flex flex-col items-center">
-                <div className="text-6xl text-green-500 mb-4">🤝</div>
-                <h3 className="text-2xl font-semibold mb-2 text-gray-800">
+              <div className={styles.howItWorksCard}>
+                <div className={styles.howItWorksIcon}>🤝</div>
+                <h3 className={styles.howItWorksCardTitle}>
                   Get Reunited
                 </h3>
-                <p className="text-gray-600">
+                <p className={styles.howItWorksCardText}>
                   We'll notify you when a match is found and tell you how to get
                   your item back.
                 </p>
@@ -308,47 +325,23 @@ export default function HomePage() {
         </section>
 
         {/* Contact Us */}
-        <section className="py-20 bg-gray-50 text-center">
-          <div className="container mx-auto px-6">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-800">
+        <section className={styles.contactSection}>
+          <div className={styles.container}>
+            <h2 className={styles.contactTitle}>
               Need Help?
             </h2>
-            <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto mb-8">
+            <p className={styles.contactSubtitle}>
               If you have questions or need assistance, our support team is here to
               help.
             </p>
             <a
-              href="mailto:support@bullworkmobility.com"
-              className="px-8 py-4 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-full shadow-lg transition duration-300 transform hover:scale-105"
+              href="mailto:findit.locateit.0305@gmail.com"
+              className={styles.contactButton}
             >
               Contact Support
             </a>
           </div>
         </section>
-
-        {/* Animations */}
-        <style jsx global>{`
-          body {
-            margin: 0;
-            font-family: 'Inter', sans-serif;
-          }
-          .animate-fade-in-up {
-            animation: fadeInUp 1s ease-out forwards;
-          }
-          .animate-fade-in-up.delay-200 {
-            animation-delay: 0.2s;
-          }
-          @keyframes fadeInUp {
-            from {
-              opacity: 0;
-              transform: translateY(20px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-        `}</style>
       </main>
     </>
   );

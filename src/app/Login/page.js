@@ -3,10 +3,15 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
+import axios from 'axios'; // Import Axios
+import styles from './login.module.css';
+
+// Get the API URL from the environment variables
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState({ name: '', email: '', phoneNumber: '', password: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', phoneNumber: ''});
   const [message, setMessage] = useState(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -26,25 +31,18 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const endpoint = isLogin ? 'http://localhost:5000/api/auth/login' : 'http://localhost:5000/api/auth/register';
+      const endpoint = isLogin ? `${API_BASE_URL}/auth/login` : `${API_BASE_URL}/auth/register`;
       const payload = isLogin
         ? { email: formData.email }
         : formData;
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        credentials: 'include'
+      // Use axios.post instead of fetch
+      const response = await axios.post(endpoint, payload, {
+        withCredentials: true // Equivalent to credentials: 'include' in fetch
       });
 
-      const data = await response.json();
+      const data = response.data; // Axios wraps the response in a 'data' property
       setLoading(false);
-
-      if (!response.ok) {
-        showMessage(data.message || 'An error occurred.', 'error');
-        return;
-      }
 
       if (isLogin) {
         showMessage(data.message, 'success');
@@ -55,40 +53,37 @@ export default function LoginPage() {
       }
     } catch (error) {
       setLoading(false);
-      showMessage('Network error. Please try again.', 'error');
+      // Axios error handling is more robust; response data is on error.response
+      const errorMessage = error.response?.data?.message || 'Network error. Please try again.';
+      showMessage(errorMessage, 'error');
     }
   };
 
   const Message = ({ msg }) => msg ? (
-    <div className={`p-4 rounded-lg text-sm transition-all duration-300 transform ${msg.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} shadow-md mb-4`}>
+    <div className={`${styles.message} ${msg.type === 'success' ? styles.successMessage : styles.errorMessage}`}>
       {msg.text}
     </div>
   ) : null;
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-100 font-sans">
-      <script src="https://cdn.tailwindcss.com"></script>
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-      `}</style>
-      <div className="w-full max-w-lg p-8 space-y-6 bg-white rounded-xl shadow-2xl">
-        <div className="flex justify-center mb-6">
-          <Link href="/" className="text-3xl font-bold text-gray-800">
-            Bullwork Finder
+    <div className={styles.mainContainer}>
+      <div className={styles.card}>
+        <div className={styles.header}>
+          <Link href="/" className={styles.logo}>
+            Finder
           </Link>
         </div>
         <Message msg={message} />
-        <h2 className="text-2xl font-semibold text-center text-gray-800">
+        <h2 className={styles.title}>
           {isLogin ? 'Login to your account' : 'Create a new account'}
         </h2>
-        <div className="flex bg-gray-200 p-1 rounded-full text-sm">
+        <div className={styles.toggleButtons}>
           <button
             onClick={() => {
               setIsLogin(true);
               setMessage(null);
             }}
-            className={`flex-1 py-2 rounded-full font-medium transition-colors duration-300 ${isLogin ? 'bg-teal-500 text-white shadow-md' : 'text-gray-600'}`}
+            className={`${styles.toggleButton} ${isLogin ? styles.active : ''}`}
           >
             Login
           </button>
@@ -97,30 +92,30 @@ export default function LoginPage() {
               setIsLogin(false);
               setMessage(null);
             }}
-            className={`flex-1 py-2 rounded-full font-medium transition-colors duration-300 ${!isLogin ? 'bg-teal-500 text-white shadow-md' : 'text-gray-600'}`}
+            className={`${styles.toggleButton} ${!isLogin ? styles.active : ''}`}
           >
             Signup
           </button>
         </div>
-        <form onSubmit={handleAuthSubmit} className="space-y-4">
+        <form onSubmit={handleAuthSubmit} className={styles.form}>
           {!isLogin && (
             <>
-              <input type="text" name="name" placeholder="Name" value={formData.name} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-teal-500 transition-colors" required />
-              <input type="tel" name="phoneNumber" placeholder="Phone Number" value={formData.phoneNumber} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-teal-500 transition-colors" required />
+              <input type="text" name="name" placeholder="Name" value={formData.name} onChange={handleChange} className={styles.inputField} required />
+              <input type="tel" name="phoneNumber" placeholder="Phone Number" value={formData.phoneNumber} onChange={handleChange} className={styles.inputField} required />
             </>
           )}
-          <input type="email" name="email" placeholder="Email Address" value={formData.email} onChange={handleChange} className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-teal-500 transition-colors" required />
-          <button type="submit" className="w-full py-2 px-4 rounded-lg bg-teal-500 text-white font-semibold hover:bg-teal-600 transition-colors flex items-center justify-center gap-2" disabled={loading}>
+          <input type="email" name="email" placeholder="Email Address" value={formData.email} onChange={handleChange} className={styles.inputField} required />
+          <button type="submit" className={styles.submitButton} disabled={loading}>
             {loading ? <Loader2 className="animate-spin" size={20} /> : null}
             {isLogin ? 'Log In' : 'Sign Up'}
           </button>
         </form>
-        <p className="text-center text-sm text-gray-600">
+        <p className={styles.toggleText}>
           {isLogin ? "Not a member?" : "Already a member?"}{' '}
           <a onClick={() => {
             setIsLogin(!isLogin);
             setMessage(null);
-          }} className="text-teal-600 font-medium hover:underline cursor-pointer">
+          }} className={styles.toggleLink}>
             {isLogin ? "Signup now" : "Login now"}
           </a>
         </p>
